@@ -81,6 +81,18 @@ let cachedUser: AuthUser | null = null;
 let hasInitializedSession = false;
 let sessionBootstrapPromise: Promise<SessionPayload> | null = null;
 let lastSessionBootstrapAt = 0;
+let localSessionProbed = false;
+
+/**
+ * 本地单用户模式由服务端开关控制；这里探一次入口拿会话，关闭时接口返回 404，
+ * 结果只取一次，未开启的部署不会反复请求。
+ */
+async function requestLocalSession(): Promise<boolean> {
+    if (localSessionProbed) return false;
+    localSessionProbed = true;
+    const { data } = await requestBrowserJson<{ signedIn?: boolean }>('/api/local-session');
+    return data?.signedIn === true;
+}
 
 const SESSION_CACHE_TTL_MS = 30_000;
 const SESSION_REVALIDATE_EVENT_COOLDOWN_MS = 5_000;
@@ -143,7 +155,12 @@ async function loadSessionFromServer(options: { force?: boolean; emitEvent?: boo
     if (sessionBootstrapPromise) return await sessionBootstrapPromise;
 
     const previousSession = cachedSession;
-    sessionBootstrapPromise = authClient.getSession().then((result) => {
+    sessionBootstrapPromise = (async () => {
+        let result = await authClient.getSession();
+        // 本地单用户模式（服务端开关）里，Cookie 缺失或失效时入口会补一个会话，重读一次即可。
+        if (!result.error && !result.data?.session && await requestLocalSession()) {
+            result = await authClient.getSession();
+        }
         if (result.error) {
             return getCachedSessionPayload(normalizeAuthError(result.error));
         }
@@ -159,7 +176,7 @@ async function loadSessionFromServer(options: { force?: boolean; emitEvent?: boo
             if (event) emitAuthEvent(event, { session, user });
         }
         return getCachedSessionPayload();
-    }).finally(() => {
+    })().finally(() => {
         sessionBootstrapPromise = null;
     });
     return await sessionBootstrapPromise;

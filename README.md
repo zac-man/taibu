@@ -178,10 +178,12 @@ console.log(renderToolResult('qimen', result).content[0].text);
 git clone https://github.com/hhszzzz/taibu.git
 cd taibu
 pnpm install
-pnpm local:update   # 首次：生成配置，构建镜像，启动 db、redis、web、worker、mailpit
+pnpm local:update   # 首次：生成配置，构建镜像，启动 db、redis、web、worker
 ```
 
-浏览器打开 `http://127.0.0.1:3080`，注册邮件在 Mailpit（`http://127.0.0.1:8025`）里查看；实际端口以 `pnpm local:status` 为准。随机生成的密钥和端口保存在 `.taibu-local/taibu-v2/`，不要公开或提交。
+浏览器打开 `http://127.0.0.1:3080`，实际端口以 `pnpm local:status` 为准。随机生成的密钥和端口保存在 `.taibu-local/taibu-v2/`，不要公开或提交。
+
+本地栈默认开启**本地单用户模式**：免注册免登录，第一次访问自动建一个本地管理员账号并登录（仅允许 loopback 地址），所以注册与邮件验证码流程默认用不上（邮件捕获 Mailpit 也不再随栈启动，需要时用 `--profile mail` 拉起，见[自托管手册](docs/manual/Self-Hosting.md#邮件)）。想回到注册登录：`TAIBU_LOCAL_SINGLE_USER=false pnpm local:up`。详见[自托管手册](docs/manual/Self-Hosting.md#本地单用户模式免注册免登录)。
 
 ```bash
 pnpm local:up       # 复用已有镜像启动

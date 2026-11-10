@@ -28,7 +28,7 @@ pnpm release prepare <major|minor|patch>  # 本地生成版本提交、CHANGELOG
 
 ## 固定本地测试环境
 
-- 通用测试栈使用 Docker Compose 项目 `taibu-v2`（db、redis、web、worker、mailpit），入口以 `.taibu-local/taibu-v2/env/` 生成的端口为准。
+- 通用测试栈使用 Docker Compose 项目 `taibu-v2`（db、redis、web、worker；mailpit 在 `mail` profile 里按需启动），入口以 `.taibu-local/taibu-v2/env/` 生成的端口为准。
 - `pnpm local:up` 启动本地栈；`pnpm local:update` 重新构建镜像并启动；`pnpm local:status` / `pnpm local:logs` 检查状态。
 - 本地数据卷与生成的密钥保存在 `.taibu-local/taibu-v2/`，不得输出或提交。数据库以 `database/*.sql` 的当前定义为准，只有下文「数据库规范」要求的结构变更才追加编号迁移。
 

@@ -180,10 +180,10 @@ Requires Docker with Compose v2, Node.js 24 and pnpm 10.
 git clone https://github.com/hhszzzz/taibu.git
 cd taibu
 pnpm install
-pnpm local:update   # first run: generate config, build the image, start db, redis, web, worker and mailpit
+pnpm local:update   # first run: generate config, build the image, start db, redis, web and worker
 ```
 
-Open `http://127.0.0.1:3080`; sign-up emails land in Mailpit at `http://127.0.0.1:8025`. `pnpm local:status` prints the actual ports. Generated secrets and ports live in `.taibu-local/taibu-v2/`; never publish or commit them.
+Open `http://127.0.0.1:3080`. The local stack enables single-user mode by default: the first visit creates a local admin account and signs it in (loopback only), so no registration or email verification is needed. Mailpit is not started with the stack; bring it up with `--profile mail` when you need inbox access or `pnpm test:auth`. `pnpm local:status` prints the actual ports. Generated secrets and ports live in `.taibu-local/taibu-v2/`; never publish or commit them.
 
 ```bash
 pnpm local:up       # start with the existing image

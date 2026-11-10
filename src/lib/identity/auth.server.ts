@@ -15,7 +15,7 @@ import {
 import { hashPassword, verifyPassword } from '@/lib/identity/password';
 import { authSecondaryStorage } from '@/lib/identity/secondary-storage.server';
 import { linuxdoPlugin } from '@/lib/identity/linuxdo-plugin.server';
-import { parseConfiguredOrigin, shouldSecureAuthCookies, trustedAuthOrigins } from '@/lib/runtime-env';
+import { localSingleUserEnabled, parseConfiguredOrigin, shouldSecureAuthCookies, trustedAuthOrigins } from '@/lib/runtime-env';
 
 const SIGN_IN_PATH = '/sign-in/email';
 
@@ -39,6 +39,7 @@ function buildAuth() {
   const secret = requireEnv('BETTER_AUTH_SECRET');
   if (secret.length < 32) throw new Error('BETTER_AUTH_SECRET must be at least 32 characters');
   const origin = appOrigin();
+  const localSingleUser = localSingleUserEnabled();
   return betterAuth({
     appName: '命理排盘',
     baseURL: origin,
@@ -98,7 +99,8 @@ function buildAuth() {
     },
     emailAndPassword: {
       enabled: true,
-      requireEmailVerification: true,
+      // 本地单用户模式由服务端自己建号登录，没有可收信的邮箱。
+      requireEmailVerification: !localSingleUser,
       minPasswordLength: 8,
       maxPasswordLength: 72,
       autoSignIn: true,
@@ -117,7 +119,7 @@ function buildAuth() {
       },
     },
     emailVerification: {
-      sendOnSignUp: true,
+      sendOnSignUp: !localSingleUser,
       autoSignInAfterVerification: true,
     },
     rateLimit: {

@@ -1,5 +1,5 @@
 // End-to-end authentication acceptance against the local Docker stack.
-// Requires: pnpm local:up, then pnpm test:auth.
+// Requires: pnpm local:up, the mail profile (`--profile mail up -d mailpit`), then pnpm test:auth.
 //
 // Covered: password sign-up + email verification, password sign-in, OTP sign-in,
 // password reset with session revocation, sign-out, server-side login lock,

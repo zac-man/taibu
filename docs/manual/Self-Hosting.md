@@ -24,7 +24,7 @@ pnpm install --frozen-lockfile
 pnpm local:update
 ```
 
-首次运行自动生成配置并构建、启动全部服务，数据库 SQL 自动执行。默认访问 `http://127.0.0.1:3080`；实际端口以 `pnpm local:status` 为准。邮件由 Mailpit 捕获，默认界面在 `http://127.0.0.1:8025`；注册、登录验证码和找回密码都从这里读取。
+首次运行自动生成配置并构建、启动全部服务（`db`、`redis`、`web`、`worker`），数据库 SQL 自动执行。默认访问 `http://127.0.0.1:3080`；实际端口以 `pnpm local:status` 为准。邮件捕获（Mailpit）默认不启动——本地单用户模式不发信；需要注册验证码或 `pnpm test:auth` 时按[邮件](#邮件)一节用 `--profile mail` 单独拉起。
 
 首次启动顺序由 Compose 保证：
 
@@ -52,6 +52,15 @@ pnpm selfhost restore --project taibu-v2 --input ./backups/taibu.dump
 根目录 `backups/` 已同时从 Git 和 Docker 构建上下文排除，备份应保存在私有目录。
 
 独立项目：`pnpm selfhost init --project taibu-preview --port 3082`，后续命令携带相同 `--project`。`init` 拒绝覆盖既有配置。不同项目使用独立 Docker 网络、卷和 0700 配置目录。
+
+### 本地单用户模式（免注册免登录）
+
+本地栈默认带 `TAIBU_LOCAL_SINGLE_USER=true`：第一次用浏览器访问时，服务端自己建一个本地账号、把它设为管理员并直接登录，没有注册页、验证码，也不需要动 Mailpit。账号邮箱默认 `local@taibu.local`（可用 `TAIBU_LOCAL_USER_EMAIL` 改成别的小写地址），密码由 `BETTER_AUTH_SECRET` 派生，不落盘。
+
+- 关掉它（回到注册 + 验证码登录）：`TAIBU_LOCAL_SINGLE_USER=false pnpm local:up`，然后把该变量留在自己 shell 里或写进 `app.env`；关闭后再访问就是未登录状态。
+- 只允许 loopback `APP_ORIGIN`：把本地栈暴露到非本机地址时会直接报错，因为该模式会跳过邮箱验证并自动授予管理员权限。生产部署不要设置这个变量。
+- 会话由 Proxy（`src/proxy.ts`）在缺少会话 Cookie 时引导到 `/api/local-session`；浏览器端在会话失效后也会请求该入口自愈，因此本地数据卷重建后不需要手动登录。
+- 这个模式只影响身份引导：数据访问仍走同一套 RLS 与 `userDb()`，与正常登录完全一致。
 
 ## 数据库
 
@@ -90,6 +99,8 @@ pnpm db:verify-restore  # 在临时库验证备份：定义对比、用户一致
 
 ### 设为管理员
 
+本地单用户模式（默认开启）会自动把本地账号设为管理员，这一步可以跳过。
+
 系统用户 `00000000-0000-4000-8000-000000000001` 不能登录。先用页面注册自己的账号，再执行：
 
 ```bash
@@ -127,7 +138,23 @@ EPAY_METHODS=alipay,wxpay   # 可选，默认 alipay,wxpay
 
 ## 邮件
 
-本地栈用 Mailpit 捕获邮件，不需要任何配置。生产必须接一个真实发信服务，否则注册验证码、验证码登录和找回密码都发不出去。
+本地栈的 Mailpit **默认不启动**：本地单用户模式不发信，`app.env` 里的 `EMAIL_PROVIDER=mailpit` 只在需要收信时才连得上。要跑注册/验证码流程或 `pnpm test:auth`，先单独把它拉起来；拉起与清理都走同一条 compose 命令（`--profile mail`）：
+
+```bash
+# 启动
+docker compose --project-directory . --env-file .taibu-local/taibu-v2/compose.env \
+  -f deploy/compose.base.yml -f deploy/compose.local.yml -p taibu-v2 --profile mail up -d mailpit
+
+# 停止并移除
+docker compose --project-directory . --env-file .taibu-local/taibu-v2/compose.env \
+  -f deploy/compose.base.yml -f deploy/compose.local.yml -p taibu-v2 --profile mail rm -sf mailpit
+```
+
+之后验证码界面在 `http://127.0.0.1:8025`（实际端口见 `config.json` 的 `MAILPIT_PORT`）。不启动时，任何发信尝试都会在 worker 日志里报 SMTP 连接失败。
+
+`pnpm local:up` 不会动按需拉起的 Mailpit。在本变更之前启动过的本地栈会残留一个旧 Mailpit 容器（服务仍定义在文件里、只是默认未启用，所以 `pnpm selfhost down` 不会清它），用上面的 `rm -sf` 清一次即可。
+
+生产必须接一个真实发信服务，否则注册验证码、验证码登录和找回密码都发不出去。
 
 应用是 **SMTP 客户端**，不自建 MTA。所有服务商（Brevo、Resend、腾讯云、自建 Postfix）都走同一条 SMTP 通道，因此接入方式统一：
 

@@ -14,7 +14,9 @@ services:
     ports: ['127.0.0.1:${APP_PORT:-3080}:3000']
   worker:
     build: *build
+  # 邮件捕获默认不启动：本地单用户模式不发信；需要注册验证码或 pnpm test:auth 时加 --profile mail。
   mailpit:
+    profiles: ['mail']
     image: axllent/mailpit:v1.27.8
     restart: unless-stopped
     networks: [backend]

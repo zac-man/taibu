@@ -166,6 +166,7 @@ const PASSTHROUGH = [
   'LINUXDO_CLIENT_ID', 'LINUXDO_CLIENT_SECRET',
   'AMAP_WEB_SERVICE_KEY',
   'EPAY_API_URL', 'EPAY_PID', 'EPAY_KEY', 'EPAY_METHODS',
+  'TAIBU_LOCAL_SINGLE_USER',
 ];
 
 /** Rewrites every env file from config.json. Safe to call before each compose run. */
@@ -185,6 +186,9 @@ async function writeEnvironment(config) {
   await writePrivate(path.join(env, 'app.env'), envFile({
     APP_ORIGIN: config.APP_ORIGIN,
     AUTH_ALLOW_INSECURE_LOCAL_HTTP: 'true',
+    // 本地栈免注册免登录：服务端建一个本地管理员账号并自动登录（仅 loopback）。
+    // 需要登录流程时给命令加 TAIBU_LOCAL_SINGLE_USER=false（见 PASSTHROUGH）。
+    TAIBU_LOCAL_SINGLE_USER: 'true',
     DATABASE_URL: `postgres://taibu_app:${config.TAIBU_APP_PASSWORD}@db:5432/taibu`,
     AUTH_DATABASE_URL: `postgres://taibu_auth:${config.TAIBU_AUTH_PASSWORD}@db:5432/taibu`,
     REDIS_URL: `redis://:${config.REDIS_PASSWORD}@redis:6379`,
@@ -290,7 +294,7 @@ async function up(project, build) {
   await writeEnvironment(config);
   // An image build takes minutes, far past the default command timeout.
   await compose(project, ['up', '-d', ...(build ? ['--build'] : [])], { phase: '启动', ...(build ? { timeout: 0 } : {}) });
-  console.log(`本地栈已启动：${config.APP_ORIGIN}（邮件预览 http://127.0.0.1:${config.MAILPIT_PORT}）`);
+  console.log(`本地栈已启动：${config.APP_ORIGIN}（邮件捕获默认不启动，需要时用 --profile mail）`);
 }
 
 async function loadAndGuard(project) {
@@ -369,7 +373,7 @@ export async function main(args = process.argv.slice(2)) {
 
   await loadAndGuard(project);
   if (command === 'down') {
-    await compose(project, ['down'], { phase: '停止' });
+    await compose(project, ['down', '--remove-orphans'], { phase: '停止' });
     console.log('容器与网络已停止并移除，所有持久数据卷保留。');
   }
   if (command === 'status' || command === 'logs') await observations(project, command === 'logs');
